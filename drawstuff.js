@@ -461,58 +461,58 @@ function fillPoly(imagedata,vArray) {
 // returns altered x and y coords in vertex array
 
 
-function projectPoly(imagedata, poly, view) {
-    // 视点到平面的投影
-    var planeCenter = Vector.add(view.eye, Vector.normalize(view.at));
-    var planeX = Vector.normalize(Vector.cross(view.up, view.at));
-    var planeY = Vector.normalize(Vector.cross(planeX, view.at));
+// Vector class remains the same as provided earlier
 
-    for (var v = 0; v < poly.length; v++) {
-        // 基于顶点原始x, y坐标计算新的z坐标
-        poly[v].z += poly[v].x * poly[v].x * 0.01 - poly[v].y * poly[v].y * 0.01;
+// Assuming we have a basic setup for the Color class and drawing functions as previously defined
 
-        // 投影到2D视图
-        let projection = projectVertexTo2D(poly[v], view, planeCenter, planeX, planeY, imagedata.width, imagedata.height);
-        poly[v].x = projection.x;
-        poly[v].y = projection.y;
+// Function to apply distortion based on vertex positions
+function distortVertex(vertex) {
+    // Simple distortion: adjust z based on the x and y coordinates
+    vertex.z += (vertex.x * vertex.y) * 0.01;  // You can adjust the coefficient to control the intensity of distortion
+    return vertex;
+}
+
+// Modified projectPoly function
+function projectPoly(context, poly, view) {
+    // Compute transformation and projection for each vertex
+    poly.forEach(vertex => {
+        // Distort vertex before projection
+        vertex = distortVertex(vertex);
+
+        // Perspective projection calculations (simplified)
+        const d = 10;  // distance from the eye to the projection plane
+        const projX = (vertex.x / (vertex.z + d)) * context.canvas.width / 2 + context.canvas.width / 2;
+        const projY = (vertex.y / (vertex.z + d)) * context.canvas.height / 2 + context.canvas.height / 2;
+
+        // Set the projected vertex position
+        vertex.projX = projX;
+        vertex.projY = projY;
+    });
+
+    // Draw the distorted polygon
+    context.beginPath();
+    context.moveTo(poly[0].projX, poly[0].projY);
+    for (let i = 1; i < poly.length; i++) {
+        context.lineTo(poly[i].projX, poly[i].projY);
     }
+    context.closePath();
+    context.stroke(); // Optionally fill or set other styles
 }
 
-function projectVertexTo2D(vertex, view, planeCenter, planeX, planeY, width, height) {
-    var eyeToVertex = Vector.subtract(new Vector(vertex.x, vertex.y, vertex.z), view.eye);
-    var isectT = Vector.dot(view.at, eyeToVertex);
-    var projection = Vector.add(view.eye, Vector.scale(isectT, eyeToVertex));
-    var ctrToIsect = Vector.subtract(projection, planeCenter);
-    return {
-        x: Vector.dot(planeX, ctrToIsect) * width / 2 + width / 2,
-        y: Vector.dot(planeY, ctrToIsect) * height / 2 + height / 2
-    };
-}
-
-
-    
-
-/* main -- here is where execution begins after window load */
-
+// Example usage
 function main() {
+    const canvas = document.getElementById('canvasId'); // Ensure you have a canvas with this ID in HTML
+    const context = canvas.getContext('2d');
+    const poly = [
+        { x: -1, y: 1, z: 0 },
+        { x: 1, y: 1, z: 0 },
+        { x: 1, y: -1, z: 0 },
+        { x: -1, y: -1, z: 0 }
+    ];
 
-    // Get the canvas, context, and image data
-    var canvas = document.getElementById("viewport"); 
-    var context = canvas.getContext("2d");
-    var w = context.canvas.width; // as set in html
-    var h = context.canvas.height;  // as set in html
-    var imagedata = context.createImageData(w,h);
-    
-    // define polygon and view
-    var testEye = new Vector(0,0,0);
-    var testAt = Vector.subtract(new Vector(0,0,10),testEye);
-    var view = {eye:testEye, at:testAt, up:new Vector(0,1,0)};
-    var poly = [{x:-5,y:5,z:10,c:new Color(255,0,0,255)}, {x:5,y:5,z:10,c:new Color(0,255,0,255)}, 
-                {x:5,y:-5,z:10,c:new Color(0,0,0,255)}, {x:-5,y:-5,z:10,c:new Color(0,0,255,255)}];
-    
-    // Define and render a rectangle in 2D with colors and coords at corners
-    projectPoly(imagedata,poly,view);
-    fillPoly(imagedata,poly);
-    
-    context.putImageData(imagedata, 0, 0); // display the image in the context
+    const view = { eye: { x: 0, y: 0, z: 5 } }; // Simplified camera view
+    projectPoly(context, poly, view);
 }
+
+window.onload = main;
+
